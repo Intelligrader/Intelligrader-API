@@ -9,9 +9,11 @@ import datetime
 
 # --- Configuration ---
 # Internal path must match the volume mapping in docker-compose.yml
+# NOTE: This path assumes a volume named 'data_logs' is mounted to /app/model_request_data/
 LOG_FILE_PATH = Path("/app/model_request_data/logs.jsonl") 
 MAX_FOLLOW_UP = 2 # Limit is 2 follow-ups after the initial query (3 total requests)
-MODEL_API_URL = "http://smollm2:8000/v1/completions" 
+# FIX APPLIED HERE: Changed port from 8000 to the model runner's actual listening port 12434
+MODEL_API_URL = "http://smollm2:12434/v1/completions" 
 
 # --- Data Models ---
 class UserRequest(BaseModel):
@@ -59,7 +61,6 @@ async def chat_endpoint(request: UserRequest):
     history = conversation_history.get(session_id, [])
     
     # 1. Check Follow-up Limit
-    # We check the number of *existing* user entries (which is half the total entries)
     user_request_count = len([e for e in history if e.role == 'user'])
     
     if user_request_count >= MAX_FOLLOW_UP + 1: # +1 includes the initial query
@@ -69,6 +70,7 @@ async def chat_endpoint(request: UserRequest):
         )
 
     # 2. Prepare Conversation Context (History + New Query)
+    # The 'messages' structure is critical for chat models
     model_messages = [
         {"role": entry.role, "content": entry.content} 
         for entry in history
@@ -77,8 +79,11 @@ async def chat_endpoint(request: UserRequest):
 
     # 3. Call the SmollM2 Model API
     try:
+        # Use a reasonable timeout for LLM inference (60 seconds)
         async with httpx.AsyncClient(timeout=60.0) as client:
             payload = {
+                # Note: The 'model' key is often ignored by the Docker runner 
+                # since the model is specified via MODEL_NAME ENV
                 "model": "smollm2", 
                 "messages": model_messages, 
                 "max_tokens": 256 # Set a reasonable limit for small model
@@ -89,14 +94,16 @@ async def chat_endpoint(request: UserRequest):
             
             # Extract the response text (Standard OpenAI-style API response parsing)
             model_response_data = response.json()
+            # The docker model runner uses the standard OpenAI response structure
             model_response = model_response_data['choices'][0]['message']['content']
             
     except httpx.HTTPStatusError as e:
-        logging.error(f"Model API error: {e.response.text}")
-        raise HTTPException(status_code=503, detail="Model service failed to respond. Check its logs in Portainer.")
+        logging.error(f"Model API returned error: {e.response.text}")
+        raise HTTPException(status_code=503, detail="Model service failed to respond with a 2xx status. Check model runner logs.")
     except Exception as e:
+        # This catches connection errors (e.g., wrong port, container down)
         logging.error(f"Connection error to model service: {e}")
-        raise HTTPException(status_code=503, detail="Cannot connect to the model service. Is the smollm2 container running?")
+        raise HTTPException(status_code=503, detail="Cannot connect to the model service. Is the smollm2 container running or is the internal port correct?")
 
     # 4. Update History
     history.append(ConversationEntry(role="user", content=user_query))
