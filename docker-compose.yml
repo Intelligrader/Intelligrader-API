@@ -1,55 +1,59 @@
 version: '3.8'
 
-services:
-  # 1. Your single, user-facing FastAPI Application Service
-  fastapi-app:
-    # Use the current directory (where Dockerfile is) to build the image
-    build: . 
-    container_name: fastapi_chat_api
-    # This maps the host's port 8080 to the container's port 8000 (as defined in Dockerfile/CMD)
-    ports:
-      - "8080:8000"
-    restart: unless-stopped
-    # Include the volume definition if you still need it for logs/data
-    volumes:
-      # If you keep the volume, you need to define it at the top level (see below)
-      # - model_request_data:/app/model_request_data/
-      - ./data_logs:/app/model_request_data/ # A simpler, local mount for development
-
-# Define the volume if you still want to use a persistent volume like 'model_request_data'
-# volumes:
-#   model_request_data:
-#     external: trueversion: '3.8'
-
-# Define the volume you created in Portainer
+# --- Top-Level Volume Definitions ---
 volumes:
+  # 1. Volume created in Portainer
   model_request_data:
     external: true
+  
+  # 2. Local bind mount for logs
+  data_logs:
+    driver: local
+  
+  # 3. Volume for the Docker Model Runner
+  docker-model-runner-models:
+    external: true
 
+# --- Top-Level Services Definitions ---
 services:
-  # 1. The SmollM2 Model Service
+  # 1. The SmollM2 Model Service (Using the Model Runner)
   smollm2:
-    image: ai/smollm2:latest
+    # Use the official Docker Model Runner image
+    image: docker/model-runner:latest
     container_name: smollm2_service
-    # This service is only accessible internally via the service name 'smollm2'
-    # We expose the port internally for the FastAPI app to use
+    
+    # Pass the name of the model you pulled
+    environment:
+      - MODEL_NAME=ai/smollm2:latest
+    
+    # Mount the model storage volume (using the mount syntax)
+    volumes:
+      - docker-model-runner-models:/model-storage
+      
+    # Expose the model runner's port internally
     expose:
-      - 8000 
+      - 8000
     restart: unless-stopped
-    # If the model requires specific environment variables or resources, add them here
-    # environment:
-    #   - HF_TOKEN=<Your_HuggingFace_Token_if_needed>
 
-  # 2. Your FastAPI Application Service
+  # 2. Your FastAPI Application Service (User-facing API)
   fastapi-app:
     build: . # Build from the Dockerfile in the current directory
     container_name: fastapi_chat_api
     depends_on:
       - smollm2 # Ensures the model starts before the chat API
-    # Map a host port (e.g., 8080) to the container's port 8000
+    
+    # Map a host port (8080) to the container's port 8000
     ports:
-      - "8080:8000" 
+      - "8080:8000"
+      
     restart: unless-stopped
+    
+    # Mount volumes using the correct syntax: volume_name:path_in_container
     volumes:
-      # Mount the Portainer volume to the internal log path defined in main.py
+      # Portainer volume mount
       - model_request_data:/app/model_request_data/
+      # Local bind mount
+      - ./data_logs:/app/data_logs/ # Adjusted path for clarity if different from model data
+      
+      # The fastapi-app doesn't need to mount the model-runner volume, 
+      # as it accesses the model via HTTP/port 8000, not the file system.
