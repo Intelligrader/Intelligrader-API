@@ -1,19 +1,14 @@
-# Intelligrader FastAPI
+# Intelligrader API Service
 
-Simple FastAPI service for testing CI/CD pipeline.
+Simple FastAPI service for Intelligrader
 
 ## Quick Start
-
-```bash
-docker compose up -d --build
-```
-
 Test it:
 ```bash
-curl http://52.32.22.94
+Praneet please input our Domain
 ```
 
-## Endpoints
+## Our API is hosted at: [peral.one](peral.one)
 
-- `GET /` - Returns "yo"
-- `GET /health` - Health check
+## Endpoints
+Please Check Back Soon

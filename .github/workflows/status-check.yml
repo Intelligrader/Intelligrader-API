@@ -16,12 +16,12 @@ jobs:
           HOST_IP: ${{ secrets.HOST_IP }}
         run: |
           # List of endpoints to check (add/remove as needed)
-          endps=("/" "/health")
+          endpoints=("/" "/health")
           
           errorCount=0
           
           # Loop through each endpoint
-          for endpoint in "${endps[@]}"; do
+          for endpoint in "${endpoints[@]}"; do
             endpoint_to_check="${HOST_IP}${endpoint}"
             echo "Checking endpoint: ${endpoint_to_check}"
             
