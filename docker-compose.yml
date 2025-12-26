@@ -14,8 +14,11 @@ services:
       - intelligrader-api
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
+      - /etc/ssl/peral.one.pem:/etc/ssl/peral.one.pem:ro  
+      - /etc/ssl/peral.one.key:/etc/ssl/peral.one.key:ro  
     networks:
       - web_network
 
