@@ -27,18 +27,18 @@ jobs:
             
             # Check the endpoint
             if ! curl -f -s -o /dev/null -w "%{http_code}" --max-time 10 "${endpoint_to_check}" > /dev/null 2>&1; then
-              echo "❌ ERROR: Failed to reach ${endpoint_to_check}"
+              echo "ERROR: Failed to reach ${endpoint_to_check}"
               errorCount=$((errorCount + 1))
             else
-              echo "✅ SUCCESS: ${endpoint_to_check} is reachable"
+              echo "SUCCESS: ${endpoint_to_check} is reachable"
             fi
           done
           
           # If any errors occurred, fail the job
           if [ $errorCount -ge 1 ]; then
-            echo "❌ Status check failed: ${errorCount} endpoint(s) unreachable"
+            echo "Status check failed: ${errorCount} endpoint(s) unreachable"
             exit 1
           else
-            echo "✅ All endpoints are reachable"
+            echo "All endpoints are reachable"
             exit 0
           fi
