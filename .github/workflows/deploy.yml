@@ -2,16 +2,15 @@ name: CI-CD Deployment Pipeline
 
 on:
   push:
-    branches: [ "main" ]  # Triggers every time you push to the main branch
+    branches: [ "main" ]  
 
 jobs:
   deploy:
-    runs-on: self-hosted  # Targets your Lightsail server
+    runs-on: self-hosted  # Targets Lightsail server
     
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        # This downloads your code into: 
         # /home/ubuntu/actions-runner/_work/Intelligrader-API/Intelligrader-API
 
       - name: Deploy with Docker Compose
