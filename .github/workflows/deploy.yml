@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          lfs: true
         # /home/ubuntu/actions-runner/_work/Intelligrader-API/Intelligrader-API
 
       - name: Deploy with Docker Compose
