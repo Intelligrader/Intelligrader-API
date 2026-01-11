@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from llama_cpp import Llama
 import os
@@ -30,8 +31,8 @@ class GenerateRequest(BaseModel):
     top_p: float = 0.9
 
 @app.get("/")
-def read_root():
-    return {"message": "yo"}
+def root():
+    return RedirectResponse(url="/generate")
 
 @app.get("/health")
 def health():
