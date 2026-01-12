@@ -9,6 +9,7 @@ services:
       - web_network
 
   nginx:
+    container_name: intelligrader-nginx
     image: nginx:alpine
     depends_on:
       - intelligrader-api
