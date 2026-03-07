@@ -12,11 +12,12 @@ services:
     image: nginx:alpine
     depends_on:
       - intelligrader-api
+    container_name: intelligrader-nginx
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/conf.d/peral.one.conf:/etc/nginx/conf.d/default.conf:ro
       - /etc/ssl/peral.one.pem:/etc/ssl/peral.one.pem:ro  
       - /etc/ssl/peral.one.key:/etc/ssl/peral.one.key:ro  
     networks:

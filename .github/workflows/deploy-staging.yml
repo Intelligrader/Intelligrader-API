@@ -1,0 +1,38 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches:
+      - test
+
+jobs:
+  deploy-staging:
+    if: github.ref == 'refs/heads/test'
+    runs-on: self-hosted  # Uses the same runner as production
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: test
+          lfs: true
+
+      - name: Cache Models Folder
+        uses: actions/cache@v3
+        with:
+          path: models/
+          key: ${{ runner.os }}-models-staging-${{ hashFiles('models/**') }}
+          restore-keys: |
+            ${{ runner.os }}-models-staging-
+            ${{ runner.os }}-models-
+
+      - name: Deploy Staging with Docker Compose
+        run: |
+          docker compose -f docker-compose.staging.yml down --remove-orphans
+          
+          docker compose -f docker-compose.staging.yml up -d --build
+          
+          docker image prune -f
+
+      - name: Status Check
+        run: docker compose -f docker-compose.staging.yml ps

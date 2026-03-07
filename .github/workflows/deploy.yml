@@ -2,10 +2,12 @@ name: CI-CD Deployment Pipeline
 
 on:
   push:
-    branches: [ "main" ]  
+    branches:
+      - main
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/main'
     runs-on: self-hosted  # Targets Lightsail server
     
     steps:
@@ -24,9 +26,9 @@ jobs:
 
       - name: Deploy with Docker Compose
         run: |
-          docker compose down --remove-orphans
+          docker compose -f docker-compose.yml down --remove-orphans
           
-          docker compose up -d --build
+          docker compose -f docker-compose.yml up -d --build
           
           docker image prune -f
 
