@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
@@ -8,18 +9,18 @@ from slowapi.errors import RateLimitExceeded
 from fastapi.exceptions import RequestValidationError
 import os
 
-limiter = Limiter(key_func=get_remote_address)
-app = FastAPI()
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, lambda request, exc: HTTPException(status_code=429, detail="Rate limit exceeded: 10 requests per hour"))
+from model_manager import ensure_models, get_active_local_model_path
 
-# Load the GGUF model
-model_path = "./models/SmolLM2-Rethink-360M.F32.gguf"
+limiter = Limiter(key_func=get_remote_address)
 llm = None
 
-@app.on_event("startup")
-async def startup_event():
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global llm
+    active_models = ensure_models()
+    model_path = str(get_active_local_model_path(active_models))
+
     if os.path.exists(model_path):
         llm = Llama(
             model_path=model_path,
@@ -30,6 +31,13 @@ async def startup_event():
         print(f"Model loaded successfully from {model_path}")
     else:
         print(f"Warning: Model not found at {model_path}")
+
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, lambda request, exc: HTTPException(status_code=429, detail="Rate limit exceeded: 10 requests per hour"))
 
 class GenerateRequest(BaseModel):
     prompt: str

@@ -31,3 +31,4 @@ env/
 .DS_Store
 nginx/ssl/
 *.log
+models/*.gguf

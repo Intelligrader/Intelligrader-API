@@ -2,3 +2,5 @@ fastapi==0.104.1
 uvicorn[standard]==0.24.0
 llama-cpp-python==0.2.90
 slowapi==0.1.9
+huggingface_hub==0.34.4
+PyYAML==6.0.2

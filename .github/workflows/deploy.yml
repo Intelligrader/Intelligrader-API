@@ -14,14 +14,6 @@ jobs:
         with:
           lfs: true
 
-      - name: Cache Models Folder
-        uses: actions/cache@v3
-        with:
-          path: models/
-          key: ${{ runner.os }}-models-${{ hashFiles('models/**') }}  # Caches based on the contents of the models folder
-          restore-keys: |
-            ${{ runner.os }}-models-
-
       - name: Deploy with Docker Compose
         run: |
           docker compose down --remove-orphans
@@ -29,6 +21,15 @@ jobs:
           docker compose up -d --build
           
           docker image prune -f
+
+      - name: Trigger Model Sync On Server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST_IP }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            docker exec intelligrader-api python -m model_manager
 
       - name: Status Check
         run: docker ps

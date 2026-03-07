@@ -1,0 +1,5 @@
+models:
+  - name: smollm2-rethink-360m
+    hf_repo: prithivMLmods/SmolLM2-Rethink-360M-GGUF
+    filename: SmolLM2-Rethink-360M.F32.gguf
+    active: true
