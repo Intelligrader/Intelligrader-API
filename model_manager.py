@@ -1,9 +1,7 @@
 import logging
-import subprocess
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Set
+from typing import Iterable, List
 
 import yaml
 from huggingface_hub import hf_hub_download
@@ -51,26 +49,7 @@ def _read_registry(registry_path: Path) -> List[ModelSpec]:
     return specs
 
 
-def _list_registered_ollama_models() -> Set[str]:
-    process = subprocess.run(
-        ["ollama", "list"],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
 
-    registered: Set[str] = set()
-    for line in process.stdout.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.upper().startswith("NAME"):
-            continue
-
-        model_name = stripped.split()[0]
-        registered.add(model_name)
-        if ":" in model_name:
-            registered.add(model_name.split(":", 1)[0])
-
-    return registered
 
 
 def _download_model_if_missing(spec: ModelSpec, models_dir: Path) -> Path:
@@ -91,30 +70,6 @@ def _download_model_if_missing(spec: ModelSpec, models_dir: Path) -> Path:
     return Path(downloaded_path)
 
 
-def _register_with_ollama_if_missing(spec: ModelSpec, local_path: Path, registered_models: Set[str]) -> None:
-    if spec.name in registered_models:
-        LOGGER.info("Ollama model already registered, skipping create: %s", spec.name)
-        return
-
-    # Ollama expects a Modelfile with a FROM directive pointing at the GGUF file.
-    modelfile_content = f"FROM {local_path.resolve().as_posix()}\n"
-    with tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8") as modelfile:
-        modelfile.write(modelfile_content)
-        modelfile_path = Path(modelfile.name)
-
-    try:
-        LOGGER.info("Registering model with Ollama: %s", spec.name)
-        subprocess.run(
-            ["ollama", "create", spec.name, "-f", str(modelfile_path)],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        registered_models.add(spec.name)
-    finally:
-        modelfile_path.unlink(missing_ok=True)
-
-
 def ensure_models(registry_path: str = "models.yaml", models_dir: str = "models") -> List[ModelSpec]:
     registry = _read_registry(Path(registry_path))
     active_models = [spec for spec in registry if spec.active]
@@ -123,12 +78,10 @@ def ensure_models(registry_path: str = "models.yaml", models_dir: str = "models"
         LOGGER.warning("No active models found in %s", registry_path)
         return []
 
-    registered_models = _list_registered_ollama_models()
     model_dir_path = Path(models_dir)
 
     for spec in active_models:
-        local_path = _download_model_if_missing(spec, model_dir_path)
-        _register_with_ollama_if_missing(spec, local_path, registered_models)
+        _download_model_if_missing(spec, model_dir_path)
 
     return active_models
 
