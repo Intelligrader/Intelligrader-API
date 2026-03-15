@@ -30,7 +30,7 @@ class GenerateRequest(BaseModel):
     temperature: float = 0.7
     top_p: float = 0.9
 
-@app.get("/")
+@app.post("/")
 def root():
     return RedirectResponse(url="/generate")
 
