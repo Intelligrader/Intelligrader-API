@@ -18,7 +18,6 @@ RUN CMAKE_ARGS="-DLLAMA_BLAS=OFF -DLLAMA_BLAS_VENDOR=OpenBLAS" \
     pip install --no-cache-dir -r requirements.txt
 
 COPY main.py .
-COPY models/ ./models/
 
 EXPOSE 8000
 
