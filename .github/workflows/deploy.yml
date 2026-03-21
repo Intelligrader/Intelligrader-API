@@ -24,9 +24,7 @@ jobs:
 
       - name: Deploy with Docker Compose
         run: |
-          docker compose down --remove-orphans
-          
-          docker compose up -d --build
+          docker compose -p intelligrader-prod -f docker-compose.yml up -d --build --remove-orphans
           
           docker image prune -f
 
