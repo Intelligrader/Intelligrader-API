@@ -13,10 +13,10 @@ services:
     depends_on:
       - intelligrader-api-staging
     ports:
-      - "8080:80"
-      - "8443:443"
+      - "8080:8080"
+      - "8443:8443"
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/conf.d/staging.peral.one.conf:/etc/nginx/conf.d/default.conf:ro
       - /etc/ssl/peral.one.pem:/etc/ssl/peral.one.pem:ro  
       - /etc/ssl/peral.one.key:/etc/ssl/peral.one.key:ro  
     networks:
