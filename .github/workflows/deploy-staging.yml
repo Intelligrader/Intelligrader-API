@@ -1,0 +1,35 @@
+name: CI-CD Staging (Test Branch) Deployment Pipeline
+
+on:
+  push:
+    # Staging is our test branch. All test deployments run from this branch only.
+    branches: [ "staging" ]  
+
+jobs:
+  deploy:
+    runs-on: self-hosted  # Targets Lightsail server
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Models Folder
+        uses: actions/cache@v3
+        with:
+          path: models/
+          key: ${{ runner.os }}-models-${{ hashFiles('models/**') }}  # Caches based on the contents of the models folder
+          restore-keys: |
+            ${{ runner.os }}-models-
+
+      - name: Deploy Staging with Docker Compose
+        run: |
+          docker compose -f docker-compose.staging.yml down --remove-orphans
+          
+          docker compose -f docker-compose.staging.yml up -d --build
+          
+          docker image prune -f
+
+      - name: Status Check
+        run: docker ps

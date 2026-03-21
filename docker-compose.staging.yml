@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  intelligrader-api-staging:
+    build: .
+    container_name: intelligrader-api-staging
+    restart: unless-stopped
+    networks:
+      - intelligrader-staging-net
+
+  nginx-staging:
+    image: nginx:alpine
+    depends_on:
+      - intelligrader-api-staging
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    volumes:
+      - ./nginx/conf.d/staging.peral.one.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/ssl/peral.one.pem:/etc/ssl/peral.one.pem:ro  
+      - /etc/ssl/peral.one.key:/etc/ssl/peral.one.key:ro  
+    networks:
+      - intelligrader-staging-net
+
+networks:
+  intelligrader-staging-net:
+    driver: bridge
