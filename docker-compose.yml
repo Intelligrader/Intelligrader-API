@@ -5,6 +5,8 @@ services:
     build: .
     container_name: intelligrader-api
     restart: unless-stopped
+    volumes:
+      - ${MODEL_HOST_DIR:-/opt/intelligrader/models}:/app/models
     networks:
       - web_network
 
