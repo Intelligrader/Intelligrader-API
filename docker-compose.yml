@@ -6,7 +6,7 @@ services:
     container_name: intelligrader-api
     restart: unless-stopped
     networks:
-      - web_network
+      - intelligrader-prod-net
 
   nginx:
     image: nginx:alpine
@@ -20,8 +20,8 @@ services:
       - /etc/ssl/peral.one.pem:/etc/ssl/peral.one.pem:ro  
       - /etc/ssl/peral.one.key:/etc/ssl/peral.one.key:ro  
     networks:
-      - web_network
+      - intelligrader-prod-net
 
 networks:
-  web_network:
+  intelligrader-prod-net:
     driver: bridge
