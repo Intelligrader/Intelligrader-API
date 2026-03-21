@@ -1,8 +1,9 @@
-name: CI-CD Staging Deployment Pipeline
+name: CI-CD Staging (Test Branch) Deployment Pipeline
 
 on:
   push:
-    branches: [ "test" ]  
+    # Staging is our test branch. All test deployments run from this branch only.
+    branches: [ "staging" ]  
 
 jobs:
   deploy:
