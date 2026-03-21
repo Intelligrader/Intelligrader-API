@@ -12,33 +12,18 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          lfs: false
+          lfs: true
 
-      - name: Ensure GGUF model exists on host
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          MODEL_HOST_DIR: /opt/intelligrader/models
-          MODEL_FILE: Intelligrader_SAQ_Grader_Qwen.gguf
-          HF_REPO_ID: DevomB/Intelligrader-Models
-        run: |
-          set -euo pipefail
-          mkdir -p "$MODEL_HOST_DIR"
-
-          if [ -f "$MODEL_HOST_DIR/$MODEL_FILE" ]; then
-            echo "Using cached model: $MODEL_HOST_DIR/$MODEL_FILE"
-          else
-            echo "Model not found on host. Downloading from Hugging Face..."
-            python3 -m pip install --upgrade --no-cache-dir huggingface-hub
-            if [ -n "${HF_TOKEN:-}" ]; then
-              huggingface-cli download "$HF_REPO_ID" "$MODEL_FILE" --local-dir "$MODEL_HOST_DIR" --token "$HF_TOKEN"
-            else
-              huggingface-cli download "$HF_REPO_ID" "$MODEL_FILE" --local-dir "$MODEL_HOST_DIR"
-            fi
-          fi
+      - name: Cache Models Folder
+        uses: actions/cache@v3
+        with:
+          path: models/
+          key: ${{ runner.os }}-models-${{ hashFiles('models/**') }}  # Caches based on the contents of the models folder
+          restore-keys: |
+            ${{ runner.os }}-models-
 
       - name: Deploy with Docker Compose
         run: |
-          export MODEL_HOST_DIR="${MODEL_HOST_DIR:-/opt/intelligrader/models}"
           docker compose down --remove-orphans
           
           docker compose up -d --build
