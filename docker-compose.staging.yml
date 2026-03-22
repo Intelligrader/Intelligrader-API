@@ -1,9 +1,9 @@
 version: "3.8"
+name: intelligrader-staging
 
 services:
   intelligrader-api-staging:
     build: .
-    container_name: intelligrader-api-staging
     restart: unless-stopped
     networks:
       - intelligrader-staging-net
