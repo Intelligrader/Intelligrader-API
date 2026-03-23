@@ -15,8 +15,8 @@ jobs:
         env:
           HOST_IP: ${{ secrets.HOST_IP }}
         run: |
-          # List of endpoints to check (add/remove as needed)
-          endpoints=("/health")
+          # Base endpoints that must be reachable
+          endpoints=("/health" "/docs")
           
           errorCount=0
           
@@ -38,7 +38,21 @@ jobs:
           if [ $errorCount -ge 1 ]; then
             echo "Status check failed: ${errorCount} endpoint(s) unreachable"
             exit 1
+          fi
+
+          # Generation readiness smoke test
+          echo "Running generation smoke test: ${HOST_IP}/generate"
+          generate_response=$(curl -s --max-time 30 \
+            -H "Content-Type: application/json" \
+            -X POST \
+            -d '{"prompt":"Healthcheck ping","max_tokens":8,"temperature":0.2,"top_p":0.9}' \
+            "${HOST_IP}/generate")
+
+          if [[ "${generate_response}" != *"generated_text"* ]]; then
+            echo "Status check failed: generation smoke test failed"
+            echo "Response: ${generate_response}"
+            exit 1
           else
-            echo "All endpoints are reachable"
+            echo "All endpoint and generation checks passed"
             exit 0
           fi
