@@ -4,12 +4,14 @@ name: intelligrader-prod
 services:
   intelligrader-api:
     build: .
+    container_name: intelligrader-prod-api
     restart: unless-stopped
     networks:
       - intelligrader-prod-net
 
   nginx:
     image: nginx:alpine
+    container_name: intelligrader-prod-nginx
     depends_on:
       - intelligrader-api
     ports:
@@ -24,4 +26,5 @@ services:
 
 networks:
   intelligrader-prod-net:
+    name: intelligrader-prod-net
     driver: bridge
