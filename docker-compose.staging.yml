@@ -4,12 +4,15 @@ name: intelligrader-staging
 services:
   intelligrader-api-staging:
     build: .
+    image: intelligrader-staging-api:latest
+    container_name: intelligrader-staging-api
     restart: unless-stopped
     networks:
       - intelligrader-staging-net
 
   nginx-staging:
     image: nginx:alpine
+    container_name: intelligrader-staging-nginx
     depends_on:
       - intelligrader-api-staging
     ports:
@@ -24,4 +27,5 @@ services:
 
 networks:
   intelligrader-staging-net:
+    name: intelligrader-staging-net
     driver: bridge
