@@ -1,0 +1,80 @@
+INTELLIGRADER MODEL MANAGER MIGRATION
+======================================
+
+[ ] PROMPT 1 — Create models.yaml
+    - Create models.yaml in repo root
+    - Use id: "intelligrader-saq-qwen"
+    - repo_id: "DevomB/Intelligrader-Models"
+    - filename: "Intelligrader_SAQ_Grader_Qwen.gguf"
+    - default: true
+    - runtime: n_ctx=2048, n_threads=4, n_gpu_layers=0
+    TEST: python3 -c "import yaml; d = yaml.safe_load(open('models.yaml')); defaults = [m for m in d['models'] if m.get('default')]; print('Models:', [m['id'] for m in d['models']]); print('Default:', defaults[0]['id'] if len(defaults)==1 else 'ERROR: ' + str(len(defaults)) + ' defaults found')"
+    EXPECTED: prints model ID and exactly one default
+
+[x] PROMPT 2 — Create model_manager.py
+    - MAX_LOADED_MODELS = 3 (hardcoded constant at top)
+    - MODELS_DIR = Path("/app/model_storage")
+    - Validate models.yaml on import (exactly one default)
+    - is_supported(model_id) -> bool
+    - get_default_model_id() -> str
+    - get_model_path(model_id) -> Path (cache hit skips download)
+    - _download_model(model_id) (calls _evict_if_needed first)
+    - _evict_if_needed() (deletes oldest .gguf by mtime)
+    - Add huggingface_hub to requirements.txt
+    TEST: python3 -c "import model_manager as mm; print(mm.is_supported('intelligrader-saq-qwen')); print(mm.is_supported('fake-model')); print(mm.get_default_model_id()); p = mm.get_model_path('intelligrader-saq-qwen'); print(p, p.exists())"
+    EXPECTED: True, False, intelligrader-saq-qwen, path, True
+    NOTE: second run should be instant (cache hit, no redownload)
+
+[ ] PROMPT 3 — Add Docker volumes to Compose files
+    - docker-compose.yml: mount model_storage -> /app/model_storage
+    - docker-compose.staging.yml: mount model_storage_staging -> /app/model_storage
+    - Add top-level volumes: block to both files
+    - Mount path must match MODELS_DIR in model_manager.py exactly
+    - Only mount on the API service, not Nginx
+    TEST: docker compose -f docker-compose.yml config | grep -A5 "model_storage"
+    TEST: docker compose -f docker-compose.staging.yml config | grep -A5 "model_storage"
+    EXPECTED: both show volume definition and mount under api service, no errors
+
+[ ] PROMPT 4 — Refactor main.py startup
+    - Remove hardcoded model path string
+    - Import model_manager
+    - Add loaded_model_id: str | None = None global
+    - Startup handler: get default id -> get path -> load Llama with runtime from yaml
+    - Add get_model_config(model_id) -> dict to model_manager.py
+    - POST /generate must still work identically (same request, same response)
+    TEST: docker compose up --build, then:
+    curl -X POST http://localhost:8000/generate -H "Content-Type: application/json" -d '{"prompt":"Hello","max_tokens":20,"temperature":0.7,"top_p":0.9}'
+    EXPECTED: same response shape as before, logs show "Default model loaded: intelligrader-saq-qwen"
+
+[ ] PROMPT 5 — Update POST /generate (model param + model_used in response)
+    - Add optional model: str | None = None to GenerateRequest
+    - Resolve: requested = request.model or loaded_model_id
+    - Validate with is_supported(), 400 if not
+    - If different model requested: evict current, download new, reload Llama
+    - Add "model_used": loaded_model_id to response
+    - Add GET /models endpoint (supported list, loaded model, max_loaded_on_disk)
+    - Add comment warning about global state breaking under multiple workers
+    TEST 1: curl without model param -> model_used = "intelligrader-saq-qwen"
+    TEST 2: curl with valid model param -> 200, correct model_used
+    TEST 3: curl with model: "gpt-4" -> 400 Unsupported model
+    TEST 4: curl GET /models -> JSON with supported, loaded, max_loaded_on_disk
+    EXPECTED: all four pass
+
+[ ] PROMPT 6 — Dockerfile cleanup
+    - Remove any COPY of models/ or *.gguf from Dockerfile
+    - Add to .dockerignore: models/ and *.gguf
+    - Delete models/SmolLM2-Rethink-360M.F32.gguf from repo
+    - Confirm requirements.txt has huggingface_hub and llama-cpp-python
+    TEST: docker build -t intelligrader-test . && docker run --rm intelligrader-test find /app -name "*.gguf"
+    EXPECTED: no output (no GGUFs baked into image), image size significantly smaller
+    FINAL: redeploy staging and re-run all four Prompt 5 curl tests
+
+
+NOTES
+======================================
+- Volumes are intentionally separate (model_storage vs model_storage_staging)
+  Sharing them risks eviction race conditions between staging and prod
+- HF repo DevomB/Intelligrader-Models — confirm public or add HF_TOKEN env var
+- MAX_LOADED_MODELS = 3 is in model_manager.py line 1 area, easy to change
+- model id "intelligrader-saq-qwen" is API-facing — changing it is a breaking change
+- Global llm var is fine for single-worker — will break under multiple workers (noted in code)

@@ -7,6 +7,8 @@ services:
     image: intelligrader-prod-api:latest
     container_name: intelligrader-prod-api
     restart: unless-stopped
+    volumes:
+      - model_storage:/app/model_storage
     networks:
       - intelligrader-prod-net
 
@@ -29,3 +31,6 @@ networks:
   intelligrader-prod-net:
     name: intelligrader-prod-net
     driver: bridge
+
+volumes:
+  model_storage:
