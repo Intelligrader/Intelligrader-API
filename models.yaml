@@ -1,0 +1,9 @@
+models:
+  - id: "intelligrader-saq-qwen"
+    repo_id: "DevomB/Intelligrader-Models"
+    filename: "Intelligrader_SAQ_Grader_Qwen.gguf"
+    default: true
+    runtime:
+      n_ctx: 2048
+      n_threads: 4
+      n_gpu_layers: 0
