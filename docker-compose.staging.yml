@@ -4,6 +4,7 @@ name: intelligrader-staging
 services:
   intelligrader-api-staging:
     build: .
+    image: intelligrader-staging-api:latest
     container_name: intelligrader-staging-api
     restart: unless-stopped
     volumes:

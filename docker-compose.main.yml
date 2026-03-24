@@ -4,6 +4,7 @@ name: intelligrader-prod
 services:
   intelligrader-api:
     build: .
+    image: intelligrader-prod-api:latest
     container_name: intelligrader-prod-api
     restart: unless-stopped
     volumes:
