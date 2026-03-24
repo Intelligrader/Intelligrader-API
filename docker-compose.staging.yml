@@ -6,6 +6,8 @@ services:
     build: .
     container_name: intelligrader-staging-api
     restart: unless-stopped
+    volumes:
+      - model_storage_staging:/app/model_storage
     networks:
       - intelligrader-staging-net
 
@@ -28,3 +30,6 @@ networks:
   intelligrader-staging-net:
     name: intelligrader-staging-net
     driver: bridge
+
+volumes:
+  model_storage_staging:
