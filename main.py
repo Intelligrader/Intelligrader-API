@@ -2,27 +2,27 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from llama_cpp import Llama
-import os
+import logging
+
+import model_manager
 
 app = FastAPI()
+logger = logging.getLogger(__name__)
 
-# Load the GGUF model
-model_path = "./models/SmolLM2-Rethink-360M.F32.gguf"
 llm = None
+loaded_model_id: str | None = None
 
 @app.on_event("startup")
 async def startup_event():
-    global llm
-    if os.path.exists(model_path):
-        llm = Llama(
-            model_path=model_path,
-            n_ctx=2048,  # Context window
-            n_threads=4,  # Number of CPU threads
-            n_gpu_layers=0  # CPU only
-        )
-        print(f"Model loaded successfully from {model_path}")
-    else:
-        print(f"Warning: Model not found at {model_path}")
+    global llm, loaded_model_id
+
+    model_id = model_manager.get_default_model_id()
+    model_path = model_manager.get_model_path(model_id)
+    config = model_manager.get_model_config(model_id)
+
+    llm = Llama(model_path=str(model_path), **config["runtime"])
+    loaded_model_id = model_id
+    logger.info("Default model loaded: %s", model_id)
 
 class GenerateRequest(BaseModel):
     prompt: str

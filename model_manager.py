@@ -65,6 +65,13 @@ def get_default_model_id() -> str:
     return _DEFAULT_MODEL_ID
 
 
+def get_model_config(model_id: str) -> dict:
+    if not is_supported(model_id):
+        raise ValueError(f"Unsupported model: {model_id}")
+
+    return _MODELS_BY_ID[model_id]
+
+
 def get_model_path(model_id: str) -> Path:
     if not is_supported(model_id):
         raise ValueError(f"Unsupported model: {model_id}")
