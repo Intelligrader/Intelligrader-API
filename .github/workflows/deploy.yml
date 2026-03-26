@@ -30,5 +30,10 @@ jobs:
           
           docker image prune -f
 
+      - name: Health Check (Main)
+        run: |
+          chmod +x scripts/health-check-main.sh
+          scripts/health-check-main.sh
+
       - name: Status Check
         run: docker ps

@@ -31,5 +31,10 @@ jobs:
           
           docker image prune -f
 
+      - name: Health Check (Staging)
+        run: |
+          chmod +x scripts/health-check-staging.sh
+          scripts/health-check-staging.sh
+
       - name: Status Check
         run: docker ps
