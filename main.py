@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from llama_cpp import Llama
@@ -18,12 +19,16 @@ async def startup_event():
     global llm, loaded_model_id
 
     model_id = model_manager.get_default_model_id()
-    model_path = model_manager.get_model_path(model_id)
-    config = model_manager.get_model_config(model_id)
-
-    llm = Llama(model_path=str(model_path), **config["runtime"])
-    loaded_model_id = model_id
-    logger.info("Default model loaded: %s", model_id)
+    try:
+        model_path = model_manager.get_model_path(model_id)
+        config = model_manager.get_model_config(model_id)
+        llm = Llama(model_path=str(model_path), **config["runtime"])
+        loaded_model_id = model_id
+        logger.info("Default model loaded: %s", model_id)
+    except Exception:
+        llm = None
+        loaded_model_id = None
+        logger.exception("Default model failed to load during startup")
 
 class GenerateRequest(BaseModel):
     prompt: str
@@ -39,6 +44,11 @@ def root():
 @app.get("/health")
 def health():
     model_status = "loaded" if llm is not None else "not loaded"
+    if llm is None:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "model": model_status},
+        )
     return {"status": "healthy", "model": model_status}
 
 @app.get("/models")

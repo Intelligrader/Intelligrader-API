@@ -23,6 +23,8 @@ jobs:
             ${{ runner.os }}-models-
 
       - name: Deploy with Docker Compose
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           docker compose -p intelligrader-prod -f docker-compose.main.yml up -d --build --remove-orphans
           

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 import yaml
@@ -95,12 +96,14 @@ def _download_model(model_id: str) -> None:
     model_cfg = _MODELS_BY_ID[model_id]
     repo_id = model_cfg["repo_id"]
     filename = model_cfg["filename"]
+    hf_token = os.getenv("HF_TOKEN")
 
     logger.info("Downloading %s from %s...", model_id, repo_id)
     hf_hub_download(
         repo_id=repo_id,
         filename=filename,
         local_dir=MODELS_DIR,
+        token=hf_token,
     )
 
 

@@ -1,4 +1,3 @@
-version: "3.8"
 name: intelligrader-staging
 
 services:
@@ -7,6 +6,8 @@ services:
     image: intelligrader-staging-api:latest
     container_name: intelligrader-staging-api
     restart: unless-stopped
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
     volumes:
       - model_storage_staging:/app/model_storage
     networks:

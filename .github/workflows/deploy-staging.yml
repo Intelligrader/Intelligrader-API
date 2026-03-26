@@ -24,6 +24,8 @@ jobs:
             ${{ runner.os }}-models-
 
       - name: Deploy Staging with Docker Compose
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           docker compose -p intelligrader-staging -f docker-compose.staging.yml up -d --build --remove-orphans
           
