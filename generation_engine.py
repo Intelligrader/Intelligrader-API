@@ -3,16 +3,19 @@ from __future__ import annotations
 from concurrent.futures import Future
 from dataclasses import dataclass
 import gc
+import json
 import logging
 import os
 from queue import Full, Queue
+import re
 from threading import Thread
+from typing import Literal
 
 from fastapi import HTTPException
 from llama_cpp import Llama
 
 import model_manager
-from schemas import GenerateRequest
+from schemas import GradeSAQRequest, GenerateSAQRequest
 
 
 logger = logging.getLogger(__name__)
@@ -20,7 +23,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class GenerationJob:
-    request: GenerateRequest
+    kind: Literal["generate", "grade_saq"]
+    request: GenerateSAQRequest | GradeSAQRequest
     future: Future
 
 
@@ -59,7 +63,13 @@ class GenerationEngine:
     def worker_available(self) -> bool:
         return self._worker is not None and self._worker.is_alive()
 
-    def generate(self, request: GenerateRequest) -> dict:
+    def generate(self, request: GenerateSAQRequest) -> dict:
+        return self._enqueue_job("generate", request)
+
+    def grade_saq(self, request: GradeSAQRequest) -> dict:
+        return self._enqueue_job("grade_saq", request)
+
+    def _enqueue_job(self, kind: Literal["generate", "grade_saq"], request: GenerateSAQRequest | GradeSAQRequest) -> dict:
         if not self.worker_available():
             raise HTTPException(status_code=503, detail="Generation worker unavailable")
 
@@ -67,7 +77,7 @@ class GenerationEngine:
         queue_depth_before = self._queue.qsize()
 
         try:
-            self._queue.put_nowait(GenerationJob(request=request, future=future))
+            self._queue.put_nowait(GenerationJob(kind=kind, request=request, future=future))
         except Full:
             raise HTTPException(
                 status_code=429,
@@ -91,7 +101,10 @@ class GenerationEngine:
                 break
 
             try:
-                result = self._generate_text_internal(job.request)
+                if job.kind == "generate":
+                    result = self._generate_text_internal(job.request)
+                else:
+                    result = self._grade_saq_internal(job.request)
                 job.future.set_result(result)
             except HTTPException as exc:
                 job.future.set_exception(exc)
@@ -103,11 +116,9 @@ class GenerationEngine:
             finally:
                 self._queue.task_done()
 
-    def _generate_text_internal(self, request: GenerateRequest) -> dict:
+    def _ensure_model_loaded(self, requested_model_id: str | None) -> None:
         if self._llm is None:
             raise HTTPException(status_code=503, detail="Model not loaded")
-
-        requested_model_id = request.model or self.loaded_model_id
 
         if not model_manager.is_supported(requested_model_id):
             raise HTTPException(
@@ -120,17 +131,86 @@ class GenerationEngine:
             self._load_model(requested_model_id)
             logger.info("Model switched to: %s", requested_model_id)
 
+    def _generate_text_internal(self, request: GenerateSAQRequest) -> dict:
+        requested_model_id = request.model or self.loaded_model_id
+        self._ensure_model_loaded(requested_model_id)
+
+        saq_prompt = (
+            "You are an assessment writer. Generate exactly one short-answer question (SAQ). "
+            "Return only the question text, with no explanation, no rubric, and no numbering. "
+            f"Topic: {request.topic}. Grade level: {request.grade_level}."
+        )
+
         output = self._llm(
-            request.prompt,
+            saq_prompt,
             max_tokens=request.max_tokens,
             temperature=request.temperature,
             top_p=request.top_p,
             echo=False,
         )
 
+        generated = output["choices"][0]["text"].strip()
+
         return {
-            "prompt": request.prompt,
-            "generated_text": output["choices"][0]["text"],
+            "saq_question": generated,
+            "tokens_used": output["usage"]["total_tokens"],
+            "model_used": self.loaded_model_id,
+        }
+
+    def _extract_json_object(self, text: str) -> dict:
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            match = re.search(r"\{[\s\S]*\}", text)
+            if match:
+                try:
+                    return json.loads(match.group(0))
+                except json.JSONDecodeError:
+                    pass
+        raise HTTPException(status_code=500, detail="Failed to parse model grading output")
+
+    def _grade_saq_internal(self, request: GradeSAQRequest) -> dict:
+        requested_model_id = request.model or self.loaded_model_id
+        self._ensure_model_loaded(requested_model_id)
+
+        grading_prompt = (
+            "You are a strict teacher grading one short-answer question. "
+            "Grade using the rubric and return JSON only with keys: score, feedback. "
+            "score must be an integer between 0 and max_score. feedback should be concise and specific.\n"
+            f"Question: {request.question}\n"
+            f"Student Answer: {request.student_answer}\n"
+            f"Rubric: {request.rubric}\n"
+            f"max_score: {request.max_score}"
+        )
+
+        output = self._llm(
+            grading_prompt,
+            max_tokens=160,
+            temperature=request.temperature,
+            top_p=request.top_p,
+            echo=False,
+        )
+
+        parsed = self._extract_json_object(output["choices"][0]["text"].strip())
+        score = parsed.get("score", 0)
+        try:
+            score = int(score)
+        except (TypeError, ValueError):
+            score = 0
+
+        if score < 0:
+            score = 0
+        if score > request.max_score:
+            score = request.max_score
+
+        feedback = str(parsed.get("feedback", "No feedback provided.")).strip()
+        if not feedback:
+            feedback = "No feedback provided."
+
+        return {
+            "score": score,
+            "max_score": request.max_score,
+            "feedback": feedback,
             "tokens_used": output["usage"]["total_tokens"],
             "model_used": self.loaded_model_id,
         }

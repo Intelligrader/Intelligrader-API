@@ -4,7 +4,12 @@ from fastapi.responses import RedirectResponse
 
 import model_manager
 from generation_engine import GenerationEngine
-from schemas import GenerateRequest
+from schemas import (
+    GenerateSAQRequest,
+    GenerateSAQResponse,
+    GradeSAQRequest,
+    GradeSAQResponse,
+)
 
 app = FastAPI()
 engine = GenerationEngine()
@@ -46,6 +51,11 @@ def list_models():
         "queue_depth": engine.queue_depth(),
     }
 
-@app.post("/generate")
-def generate_text(request: GenerateRequest):
+@app.post("/generate", response_model=GenerateSAQResponse)
+def generate_text(request: GenerateSAQRequest):
     return engine.generate(request)
+
+
+@app.post("/grade-saq", response_model=GradeSAQResponse)
+def grade_saq(request: GradeSAQRequest):
+    return engine.grade_saq(request)
