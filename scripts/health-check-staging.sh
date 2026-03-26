@@ -2,7 +2,7 @@
 set -euo pipefail
 
 URL="https://staging.peral.one:8443/health"
-MAX_ATTEMPTS=15
+MAX_ATTEMPTS=3
 SLEEP_SECONDS=10
 
 echo "Checking staging health endpoint: ${URL}"
