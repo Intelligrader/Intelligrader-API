@@ -18,7 +18,10 @@ RUN CMAKE_ARGS="-DLLAMA_BLAS=OFF -DLLAMA_BLAS_VENDOR=OpenBLAS" \
     pip install --no-cache-dir -r requirements.txt
 
 COPY main.py .
-COPY models/ ./models/
+COPY generation_engine.py .
+COPY model_manager.py .
+COPY schemas.py .
+COPY models.yaml .
 
 EXPOSE 8000
 

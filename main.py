@@ -1,92 +1,57 @@
-from fastapi import FastAPI, HTTPException, Response, status
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
-from llama_cpp import Llama
-import os
+
+import model_manager
+from generation_engine import GenerationEngine
+from schemas import (
+    GenerateSAQRequest,
+    GenerateSAQResponse,
+    GradeSAQRequest,
+    GradeSAQResponse,
+)
 
 app = FastAPI()
-
-# Load the GGUF model
-model_path = "./models/SmolLM2-Rethink-360M.F32.gguf"
-llm = None
-load_error = None
-
-
-def _looks_like_lfs_pointer(path: str) -> bool:
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            first_line = f.readline().strip()
-        return first_line == "version https://git-lfs.github.com/spec/v1"
-    except Exception:
-        return False
+engine = GenerationEngine()
 
 @app.on_event("startup")
 async def startup_event():
-    global llm, load_error
-    llm = None
-    load_error = None
+    engine.startup()
 
-    if not os.path.exists(model_path):
-        load_error = f"Model not found at {model_path}"
-        print(f"Warning: {load_error}")
-        return
 
-    if _looks_like_lfs_pointer(model_path):
-        load_error = (
-            f"Model file at {model_path} is a Git LFS pointer, not a GGUF binary. "
-            "Run git lfs pull during deployment."
-        )
-        print(f"Warning: {load_error}")
-        return
-
-    try:
-        llm = Llama(
-            model_path=model_path,
-            n_ctx=2048,  # Context window
-            n_threads=4,  # Number of CPU threads
-            n_gpu_layers=0  # CPU only
-        )
-        print(f"Model loaded successfully from {model_path}")
-    except Exception as e:
-        load_error = f"Model initialization failed: {str(e)}"
-        print(f"Warning: {load_error}")
-
-class GenerateRequest(BaseModel):
-    prompt: str
-    max_tokens: int = 128
-    temperature: float = 0.7
-    top_p: float = 0.9
+@app.on_event("shutdown")
+async def shutdown_event():
+    engine.shutdown()
 
 @app.get("/")
 def root():
-    return RedirectResponse(url="/docs")
+    return RedirectResponse(url="/generate")
 
 @app.get("/health")
-def health(response: Response):
-    model_status = "loaded" if llm is not None else "not loaded"
-    if llm is None:
-        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        return {"status": "unhealthy", "model": model_status, "error": load_error}
-    return {"status": "healthy", "model": model_status}
-
-@app.post("/generate")
-def generate_text(request: GenerateRequest):
-    if llm is None:
-        raise HTTPException(status_code=503, detail=load_error or "Model not loaded")
-    
-    try:
-        output = llm(
-            request.prompt,
-            max_tokens=request.max_tokens,
-            temperature=request.temperature,
-            top_p=request.top_p,
-            echo=False
+def health():
+    model_status = engine.model_status()
+    if model_status != "loaded":
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "model": model_status, "queue_depth": engine.queue_depth()},
         )
-        
-        return {
-            "prompt": request.prompt,
-            "generated_text": output["choices"][0]["text"],
-            "tokens_used": output["usage"]["total_tokens"]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Generation error: {str(e)}")
+    return {"status": "healthy", "model": model_status, "queue_depth": engine.queue_depth()}
+
+@app.get("/models")
+def list_models():
+    return {
+        "supported": model_manager.get_supported_model_ids(),
+        "loaded": engine.loaded_model_id,
+        "max_loaded_on_disk": model_manager.MAX_LOADED_MODELS,
+        "queue_max_size": engine.max_queue_size,
+        "queue_depth": engine.queue_depth(),
+    }
+
+@app.post("/generate", response_model=GenerateSAQResponse)
+def generate_text(request: GenerateSAQRequest):
+    return engine.generate(request)
+
+
+@app.post("/grade-saq", response_model=GradeSAQResponse)
+def grade_saq(request: GradeSAQRequest):
+    return engine.grade_saq(request)
