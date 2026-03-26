@@ -36,5 +36,11 @@ jobs:
           chmod +x scripts/health-check-staging.sh
           scripts/health-check-staging.sh
 
+      - name: Show Compose Logs (Staging, on failure)
+        if: ${{ failure() }}
+        run: |
+          chmod +x scripts/show-compose-logs.sh
+          scripts/show-compose-logs.sh docker-compose.staging.yml intelligrader-staging
+
       - name: Status Check
         run: docker ps

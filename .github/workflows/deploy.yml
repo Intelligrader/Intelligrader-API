@@ -35,5 +35,11 @@ jobs:
           chmod +x scripts/health-check-main.sh
           scripts/health-check-main.sh
 
+      - name: Show Compose Logs (Main, on failure)
+        if: ${{ failure() }}
+        run: |
+          chmod +x scripts/show-compose-logs.sh
+          scripts/show-compose-logs.sh docker-compose.main.yml intelligrader-prod
+
       - name: Status Check
         run: docker ps
