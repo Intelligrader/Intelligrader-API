@@ -13,3 +13,9 @@ curl -I https://peral.one/health
 
 ## Endpoints
 Please Check Back Soon
+
+## Request Queueing
+- Generation requests are processed by a single worker queue to prevent concurrent model access races.
+- Queue depth is exposed by `/health` and `/models` in `queue_depth`.
+- The queue size limit is configurable with `MAX_QUEUE_SIZE` (default: `100`).
+- When the queue is full, `/generate` returns HTTP `429`.
