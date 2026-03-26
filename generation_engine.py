@@ -19,6 +19,7 @@ from schemas import GradeSAQRequest, GenerateSAQRequest
 
 
 logger = logging.getLogger(__name__)
+JSON_OBJECT_PATTERN = re.compile(r"\{[\s\S]*\}")
 
 
 @dataclass
@@ -31,6 +32,7 @@ class GenerationJob:
 class GenerationEngine:
     def __init__(self, max_queue_size: int | None = None):
         self.max_queue_size = max_queue_size or int(os.getenv("MAX_QUEUE_SIZE", "100"))
+        self.request_timeout_seconds = float(os.getenv("REQUEST_TIMEOUT_SECONDS", "120"))
         self._llm = None
         self.loaded_model_id: str | None = None
         self._queue: Queue[GenerationJob | None] = Queue(maxsize=self.max_queue_size)
@@ -87,9 +89,9 @@ class GenerationEngine:
         logger.info("Generation request queued (queue depth before enqueue: %s)", queue_depth_before)
 
         try:
-            return future.result()
-        except HTTPException as exc:
-            raise exc
+            return future.result(timeout=self.request_timeout_seconds)
+        except TimeoutError:
+            raise HTTPException(status_code=504, detail="Request timed out while waiting in generation queue")
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Generation error: {str(exc)}")
 
@@ -161,7 +163,7 @@ class GenerationEngine:
         try:
             return json.loads(text)
         except json.JSONDecodeError:
-            match = re.search(r"\{[\s\S]*\}", text)
+            match = JSON_OBJECT_PATTERN.search(text)
             if match:
                 try:
                     return json.loads(match.group(0))
@@ -198,10 +200,7 @@ class GenerationEngine:
         except (TypeError, ValueError):
             score = 0
 
-        if score < 0:
-            score = 0
-        if score > request.max_score:
-            score = request.max_score
+        score = max(0, min(score, request.max_score))
 
         feedback = str(parsed.get("feedback", "No feedback provided.")).strip()
         if not feedback:

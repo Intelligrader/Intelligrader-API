@@ -12,16 +12,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          lfs: true
-
-      - name: Cache Models Folder
-        uses: actions/cache@v3
-        with:
-          path: models/
-          key: ${{ runner.os }}-models-${{ hashFiles('models/**') }}  # Caches based on the contents of the models folder
-          restore-keys: |
-            ${{ runner.os }}-models-
 
       - name: Deploy Staging with Docker Compose
         env:

@@ -18,5 +18,3 @@ venv/
 nginx/ssl
 *.md
 !README.md
-models/
-*.gguf

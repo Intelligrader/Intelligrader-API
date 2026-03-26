@@ -39,12 +39,8 @@ def health():
 
 @app.get("/models")
 def list_models():
-    supported_model_ids = [
-        model_manager._MODELS_BY_ID[model_id]["id"]
-        for model_id in model_manager._MODELS_BY_ID.keys()
-    ]
     return {
-        "supported": sorted(supported_model_ids),
+        "supported": model_manager.get_supported_model_ids(),
         "loaded": engine.loaded_model_id,
         "max_loaded_on_disk": model_manager.MAX_LOADED_MODELS,
         "queue_max_size": engine.max_queue_size,

@@ -56,6 +56,7 @@ def _load_and_validate_models() -> tuple[dict[str, dict], str]:
 
 
 _MODELS_BY_ID, _DEFAULT_MODEL_ID = _load_and_validate_models()
+_SUPPORTED_MODEL_IDS = tuple(sorted(model["id"] for model in _MODELS_BY_ID.values()))
 
 
 def is_supported(model_id: str) -> bool:
@@ -64,6 +65,10 @@ def is_supported(model_id: str) -> bool:
 
 def get_default_model_id() -> str:
     return _DEFAULT_MODEL_ID
+
+
+def get_supported_model_ids() -> tuple[str, ...]:
+    return _SUPPORTED_MODEL_IDS
 
 
 def get_model_config(model_id: str) -> dict:
