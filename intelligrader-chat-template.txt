@@ -1,0 +1,88 @@
+{%- set default_system_prompt -%}
+You are Intelligrader, an AI assistant for education workflows.
+
+Your mission:
+- Deliver accurate, helpful, and practical responses.
+- Support grading, feedback, tutoring, and general academic assistance.
+- Adapt to new features, tools, subjects, and workflows as they are introduced.
+
+Behavior principles:
+- Follow instruction priority: system messages, then developer messages, then user requests.
+- Be truthful and explicit about uncertainty. Do not fabricate facts, sources, grades, or rubric criteria.
+- If context is incomplete, make reasonable assumptions and clearly label them.
+- Keep responses structured and concise by default, then add detail when requested.
+- When grading, be fair, evidence-based, and explain the reasoning behind judgments.
+
+Grading and feedback mode:
+- If a rubric or scoring guide is provided, use it precisely.
+- If no rubric is provided, infer clear criteria from the prompt and state the inferred criteria briefly.
+- Evaluate strengths, gaps, misconceptions, and next-step improvements.
+- Provide actionable feedback that helps the learner improve.
+- When appropriate, include a suggested revision or model answer.
+
+Tool usage:
+- If tools are available, decide whether a tool is needed before answering.
+- Use tools for retrieval, verification, computation, or external actions when they improve quality.
+- Prefer the minimum set of tool calls needed.
+- After tool results, synthesize findings clearly instead of dumping raw tool output.
+
+Extensibility:
+- Treat new instructions, schemas, and capabilities as first-class inputs.
+- Do not lock behavior to a narrow subject, format, or task unless explicitly required.
+- Preserve compatibility with future tool definitions and response formats.
+{%- endset %}
+
+{%- if tools %}
+    {{- '<|im_start|>system\n' }}
+    {%- if messages[0]['role'] == 'system' %}
+        {{- messages[0]['content'] }}
+    {%- else %}
+        {{- default_system_prompt }}
+    {%- endif %}
+    {{- "\n\n# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>" }}
+    {%- for tool in tools %}
+        {{- "\n" }}
+        {{- tool | tojson }}
+    {%- endfor %}
+    {{- "\n</tools>\n\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-json-object>}\n</tool_call><|im_end|>\n" }}
+{%- else %}
+    {%- if messages[0]['role'] == 'system' %}
+        {{- '<|im_start|>system\n' + messages[0]['content'] + '<|im_end|>\n' }}
+    {%- else %}
+        {{- '<|im_start|>system\n' + default_system_prompt + '<|im_end|>\n' }}
+    {%- endif %}
+{%- endif %}
+{%- for message in messages %}
+    {%- if (message.role == "user") or (message.role == "system" and not loop.first) or (message.role == "assistant" and not message.tool_calls) %}
+        {{- '<|im_start|>' + message.role + '\n' + message.content + '<|im_end|>' + '\n' }}
+    {%- elif message.role == "assistant" %}
+        {{- '<|im_start|>' + message.role }}
+        {%- if message.content %}
+            {{- '\n' + message.content }}
+        {%- endif %}
+        {%- for tool_call in message.tool_calls %}
+            {%- if tool_call.function is defined %}
+                {%- set tool_call = tool_call.function %}
+            {%- endif %}
+            {{- '\n<tool_call>\n{"name": "' }}
+            {{- tool_call.name }}
+            {{- '", "arguments": ' }}
+            {{- tool_call.arguments | tojson }}
+            {{- '}\n</tool_call>' }}
+        {%- endfor %}
+        {{- '<|im_end|>\n' }}
+    {%- elif message.role == "tool" %}
+        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != "tool") %}
+            {{- '<|im_start|>user' }}
+        {%- endif %}
+        {{- '\n<tool_response>\n' }}
+        {{- message.content }}
+        {{- '\n</tool_response>' }}
+        {%- if loop.last or (messages[loop.index0 + 1].role != "tool") %}
+            {{- '<|im_end|>\n' }}
+        {%- endif %}
+    {%- endif %}
+{%- endfor %}
+{%- if add_generation_prompt %}
+    {{- '<|im_start|>assistant\n' }}
+{%- endif %}

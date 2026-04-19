@@ -7,4 +7,10 @@ models:
       n_ctx: 2048
       n_threads: 4
       n_gpu_layers: 0
- 
+  # - id: "Gemma3-4B-IT"
+  #   repo_id: "Andycurrent/gemma-3-4b-it-uncensored-v2-GGUF"
+  #   filename: "gemma-3-4b-it-uncensored-v2_Q3_K_M.gguf"
+  #   runtime:
+  #     n_ctx: 2048
+  #     n_threads: 4
+  #     n_gpu_layers: 0
